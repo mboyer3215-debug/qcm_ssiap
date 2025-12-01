@@ -10004,13 +10004,34 @@
             results: null
         };
 
-        // Storage functions
+        // Storage functions with localStorage persistence
         function getStorageData(key, defaultValue = null) {
+            // Essayer d'abord localStorage
+            try {
+                // eslint-disable-next-line no-restricted-globals
+                const stored = localStorage.getItem('ssiap_' + key);
+                if (stored !== null) {
+                    return JSON.parse(stored);
+                }
+            } catch (e) {
+                console.warn('localStorage non disponible, utilisation de la mémoire');
+            }
+
+            // Fallback vers appStorage en mémoire
             return appStorage[key] !== null ? appStorage[key] : defaultValue;
         }
 
         function setStorageData(key, value) {
+            // Sauvegarder en mémoire
             appStorage[key] = value;
+
+            // Essayer de sauvegarder dans localStorage
+            try {
+                // eslint-disable-next-line no-restricted-globals
+                localStorage.setItem('ssiap_' + key, JSON.stringify(value));
+            } catch (e) {
+                console.warn('Impossible de sauvegarder dans localStorage:', e);
+            }
         }
 
         // Generate random 6-digit PIN
