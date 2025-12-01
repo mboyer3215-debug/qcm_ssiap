@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QCM SSIAP - Formation</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script  src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -52,6 +53,28 @@
     </style>
 </head>
 <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+
+    <!-- QR Code Modal -->
+    <div id="qrCodeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold mb-4">📱 QR Code pour les Stagiaires</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Scannez ce code pour accéder directement à la connexion stagiaire
+                </p>
+                <div id="qrCodeContainer" class="flex justify-center mb-6 bg-white p-4 rounded-lg">
+                    <!-- QR Code will be generated here -->
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-400 mb-6 break-all">
+                    <p class="font-semibold mb-2">Ou utilisez ce lien :</p>
+                    <a id="qrCodeLink" href="" target="_blank" class="text-primary hover:underline"></a>
+                </div>
+                <button onclick="closeQRCode()" class="w-full bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-opacity-90 transition">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Login Screen -->
     <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
@@ -118,11 +141,16 @@
     <!-- Supervisor Dashboard -->
     <div id="supervisorDashboard" class="hidden min-h-screen p-4">
         <div class="max-w-7xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <h1 class="text-3xl font-bold">Tableau de bord Superviseur</h1>
-                <button onclick="logout()" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-opacity-90">
-                    Déconnexion
-                </button>
+                <div class="flex gap-3">
+                    <button onclick="showQRCode()" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-opacity-90 font-semibold">
+                        📱 QR Code Stagiaires
+                    </button>
+                    <button onclick="logout()" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-opacity-90">
+                        Déconnexion
+                    </button>
+                </div>
             </div>
 
             <!-- Tabs -->
@@ -9924,6 +9952,52 @@
             templateId: "template_0rlpmoa"  // Remplacez par votre Template ID
         };
 
+        /*
+        ==========================================
+        📧 CONFIGURATION DU TEMPLATE EMAIL EMAILJS
+        ==========================================
+
+        Dans votre template EmailJS, vous pouvez utiliser les variables suivantes :
+
+        - {{to_email}} : Email du destinataire
+        - {{to_name}} : Nom complet du stagiaire
+        - {{trainee_firstname}} : Prénom du stagiaire
+        - {{trainee_lastname}} : Nom du stagiaire
+        - {{pin_code}} : Code PIN à 6 chiffres
+        - {{ssiap_level}} : Niveau SSIAP (1, 2 ou 3)
+        - {{start_date}} : Date de début de formation
+        - {{end_date}} : Date de fin de formation
+        - {{qr_code_image}} : Image QR code en base64 (à afficher dans l'email)
+        - {{app_url}} : Lien direct vers l'application
+
+        ==========================================
+        📝 EXEMPLE DE TEMPLATE EMAIL :
+        ==========================================
+
+        Sujet : Votre code PIN pour le QCM SSIAP
+
+        Bonjour {{trainee_firstname}} {{trainee_lastname}},
+
+        Bienvenue dans votre formation SSIAP {{ssiap_level}} !
+
+        Votre code PIN pour accéder au QCM est : {{pin_code}}
+
+        📅 Période de formation : du {{start_date}} au {{end_date}}
+
+        Pour vous connecter :
+
+        1️⃣ Scannez le QR code ci-dessous avec votre smartphone :
+        <img src="{{qr_code_image}}" alt="QR Code" style="display:block; margin:20px auto; max-width:300px;">
+
+        2️⃣ Ou cliquez sur ce lien : {{app_url}}
+
+        3️⃣ Entrez votre code PIN : {{pin_code}}
+
+        Bon courage pour votre formation !
+
+        ==========================================
+        */
+
         const appStorage = {
             questions: null,
             trainees: null,
@@ -10074,6 +10148,49 @@
             }
             showLoginScreen();
         }
+
+        // QR Code functions
+        function showQRCode() {
+            const modal = document.getElementById('qrCodeModal');
+            const container = document.getElementById('qrCodeContainer');
+            const link = document.getElementById('qrCodeLink');
+
+            // Get current URL and create trainee login URL
+            const currentUrl = window.location.href.split('?')[0].split('#')[0];
+            const traineeUrl = currentUrl + '?mode=trainee';
+
+            // Clear previous QR code
+            container.innerHTML = '';
+
+            // Generate new QR code
+            new QRCode(container, {
+                text: traineeUrl,
+                width: 256,
+                height: 256,
+                colorDark: '#5D5CDE',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // Update link
+            link.href = traineeUrl;
+            link.textContent = traineeUrl;
+
+            // Show modal
+            modal.classList.remove('hidden');
+        }
+
+        function closeQRCode() {
+            document.getElementById('qrCodeModal').classList.add('hidden');
+        }
+
+        // Check if URL has trainee mode parameter and auto-navigate
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'trainee') {
+                showLoginForm('trainee');
+            }
+        });
 
         function showSupervisorDashboard() {
             document.getElementById('loginScreen').classList.add('hidden');
@@ -10232,32 +10349,62 @@
             `;
             document.body.appendChild(loadingModal);
 
-            // Initialiser EmailJS
-            emailjs.init(EMAILJS_CONFIG.publicKey);
+            // Générer le QR code pour l'email
+            const currentUrl = window.location.href.split('?')[0].split('#')[0];
+            const traineeUrl = currentUrl + '?mode=trainee';
 
-            // Préparer les paramètres de l'email
-            const templateParams = {
-                to_email: trainee.email,
-                to_name: `${trainee.firstName} ${trainee.lastName}`,
-                trainee_firstname: trainee.firstName,
-                trainee_lastname: trainee.lastName,
-                pin_code: trainee.pinCode,
-                ssiap_level: trainee.level,
-                start_date: new Date(trainee.startDate).toLocaleDateString('fr-FR'),
-                end_date: new Date(trainee.endDate).toLocaleDateString('fr-FR')
-            };
+            // Créer un conteneur temporaire pour le QR code
+            const tempDiv = document.createElement('div');
+            tempDiv.style.display = 'none';
+            document.body.appendChild(tempDiv);
 
-            // Envoyer l'email
-            emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, templateParams)
-                .then(() => {
-                    document.getElementById('emailLoadingModal').remove();
-                    showCustomAlert('✅ Email envoyé avec succès à ' + trainee.email);
-                })
-                .catch((error) => {
-                    document.getElementById('emailLoadingModal').remove();
-                    console.error('Erreur EmailJS:', error);
-                    showCustomAlert('❌ Erreur lors de l\'envoi de l\'email. Vérifiez la configuration EmailJS.');
-                });
+            // Générer le QR code
+            const qrCode = new QRCode(tempDiv, {
+                text: traineeUrl,
+                width: 300,
+                height: 300,
+                colorDark: '#5D5CDE',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // Attendre que le QR code soit généré et récupérer l'image en base64
+            setTimeout(() => {
+                const qrImage = tempDiv.querySelector('img');
+                const qrCodeBase64 = qrImage ? qrImage.src : '';
+
+                // Supprimer le conteneur temporaire
+                document.body.removeChild(tempDiv);
+
+                // Initialiser EmailJS
+                emailjs.init(EMAILJS_CONFIG.publicKey);
+
+                // Préparer les paramètres de l'email avec le QR code
+                const templateParams = {
+                    to_email: trainee.email,
+                    to_name: `${trainee.firstName} ${trainee.lastName}`,
+                    trainee_firstname: trainee.firstName,
+                    trainee_lastname: trainee.lastName,
+                    pin_code: trainee.pinCode,
+                    ssiap_level: trainee.level,
+                    start_date: new Date(trainee.startDate).toLocaleDateString('fr-FR'),
+                    end_date: new Date(trainee.endDate).toLocaleDateString('fr-FR'),
+                    qr_code_image: qrCodeBase64,
+                    app_url: traineeUrl
+                };
+
+                // Envoyer l'email
+                emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, templateParams)
+                    .then(() => {
+                        document.getElementById('emailLoadingModal').remove();
+                        showCustomAlert('✅ Email envoyé avec succès à ' + trainee.email);
+                    })
+                    .catch((error) => {
+                        document.getElementById('emailLoadingModal').remove();
+                        console.error('Erreur EmailJS:', error);
+                        showCustomAlert('❌ Erreur lors de l\'envoi de l\'email. Vérifiez la configuration EmailJS.');
+                    });
+            }, 500); // Délai pour laisser le QR code se générer
         }
 
         function printActiveTrainees() {
