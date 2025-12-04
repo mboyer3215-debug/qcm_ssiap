@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -10128,30 +10129,62 @@
             }
 
             const trainees = getStorageData('trainees', []);
-            const trainee = trainees.find(t => t.pinCode === pinCode);
+
+            // Debug: afficher les PINs disponibles
+            console.log('🔍 PIN saisi:', pinCode, 'Type:', typeof pinCode);
+            console.log('🔍 Nombre de stagiaires:', trainees.length);
+            console.log('🔍 PINs disponibles:', trainees.map(t => ({
+                name: t.firstName + ' ' + t.lastName,
+                pin: t.pinCode,
+                type: typeof t.pinCode,
+                pinString: String(t.pinCode),
+                match: String(t.pinCode).trim() === String(pinCode).trim()
+            })));
+
+            // Comparaison tolérante : convertir les deux en string
+            const trainee = trainees.find(t => String(t.pinCode).trim() === String(pinCode).trim());
 
             if (!trainee) {
-                errorDiv.textContent = 'Code PIN invalide. Contactez votre superviseur.';
+                // Message d'erreur détaillé avec debug
+                const debugInfo = trainees.length > 0
+                    ? `\n\nDebug: ${trainees.length} stagiaire(s) trouvé(s).\nPINs disponibles: ${trainees.map(t => String(t.pinCode)).join(', ')}\nVotre PIN: "${pinCode}" (longueur: ${pinCode.length})`
+                    : '\n\nAucun stagiaire enregistré dans le système.';
+
+                errorDiv.innerHTML = `Code PIN invalide. Contactez votre superviseur.${debugInfo.replace(/\n/g, '<br>')}`;
                 errorDiv.classList.remove('hidden');
+                console.error('❌ Connexion échouée');
                 return;
             }
+
+            console.log('✅ Stagiaire trouvé:', trainee.firstName, trainee.lastName);
 
             const now = new Date();
             const startDate = new Date(trainee.startDate);
             const endDate = new Date(trainee.endDate);
 
+            console.log('📅 Vérification des dates:', {
+                maintenant: now.toISOString(),
+                debut: startDate.toISOString(),
+                fin: endDate.toISOString(),
+                aCommence: now >= startDate,
+                nonExpire: now <= endDate
+            });
+
             if (now < startDate) {
                 errorDiv.textContent = 'Votre accès n\'a pas encore commencé.';
                 errorDiv.classList.remove('hidden');
+                console.error('❌ Accès pas encore commencé');
                 return;
             }
 
             if (now > endDate) {
                 errorDiv.textContent = 'Votre accès a expiré. Contactez votre superviseur.';
                 errorDiv.classList.remove('hidden');
+                console.error('❌ Accès expiré');
                 return;
             }
 
+            console.log('🎉 Connexion réussie !');
             currentUser = { type: 'trainee', ...trainee };
             showTraineeDashboard();
         }
