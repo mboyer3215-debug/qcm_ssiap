@@ -9949,15 +9949,15 @@
                     ]
         };
 
-        // Configuration Firebase - Base de données en temps réel
+        // Configuration Firebase - Base de données en temps réel (même DB que QCM SST)
         const firebaseConfig = {
-            apiKey: "AIzaSyD_9HqhcopyF1pNE88CIzgVqEgKU1xJM0",
-            authDomain: "qcm-game-f3c42.firebaseapp.com",
-            databaseURL: "https://qcm-game-f3c42-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "qcm-game-f3c42",
-            storageBucket: "qcm-game-f3c42.firebasestorage.app",
-            messagingSenderId: "910475068019",
-            appId: "1:910475068019:web:8a359e2fb91de1e8d8b9c8"
+            apiKey: "AIzaSyAZLBDZIaPp3GrXuVz4fPiK91JhLEqXPs0",
+            authDomain: "jeu-sst-v1-291025.firebaseapp.com",
+            databaseURL: "https://jeu-sst-v1-291025-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "jeu-sst-v1-291025",
+            storageBucket: "jeu-sst-v1-291025.firebasestorage.app",
+            messagingSenderId: "57462613537",
+            appId: "1:57462613537:web:6178195b2f4f08fbaa2560"
         };
 
         // Initialiser Firebase
@@ -10151,13 +10151,12 @@
 
             console.log('🔥 Création de la session:', sessionId);
 
-            // Créer la session dans Firebase
+            // Créer la session dans Firebase (sans les questions qui sont déjà dans le code)
             database.ref('sessions/' + sessionId).set({
                 supervisor: currentUser.username,
                 createdAt: Date.now(),
                 status: 'active',
-                trainees: {},
-                questions: EMBEDDED_QUESTIONS
+                trainees: {}
             }).then(() => {
                 console.log('✅ Session créée avec succès');
                 showSupervisorDashboard();
