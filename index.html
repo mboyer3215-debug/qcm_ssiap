@@ -10954,82 +10954,125 @@
 
         // Statistics
         function loadStatistics() {
-            const trainees = getStorageData('trainees', []);
-            const results = getStorageData('results', []);
-
-            document.getElementById('totalTrainees').textContent = trainees.length;
-            document.getElementById('totalCompletedQCM').textContent = results.length;
-
-            if (results.length > 0) {
-                const avgScore = results.reduce((sum, r) => sum + r.score, 0) / results.length;
-                document.getElementById('averageSuccessRate').textContent = Math.round(avgScore) + '%';
-            } else {
-                document.getElementById('averageSuccessRate').textContent = '0%';
-            }
-
-            const detailedContainer = document.getElementById('detailedResults');
-            if (results.length === 0) {
-                detailedContainer.innerHTML = '<p class="text-gray-500 text-center">Aucun résultat disponible</p>';
+            if (!sessionId) {
+                console.warn('⚠️ Pas de session active');
                 return;
             }
 
-            detailedContainer.innerHTML = results.map(result => `
-                <div class="bg-white dark:bg-gray-700 p-4 rounded-lg">
-                    <div class="flex justify-between items-center mb-2">
-                        <p class="font-semibold">${result.traineeName}</p>
-                        <span class="text-2xl font-bold ${result.score >= 60 ? 'text-green-600' : 'text-red-600'}">
-                            ${result.score}%
-                        </span>
-                    </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        SSIAP ${result.level} - ${result.correctAnswers}/${result.totalQuestions} réponses correctes
-                    </p>
-                    <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        ${new Date(result.completedAt).toLocaleString('fr-FR')}
-                    </p>
-                </div>
-            `).join('');
-        }
+            // Charger les stagiaires et leurs résultats depuis Firebase
+            database.ref('sessions/' + sessionId + '/trainees').once('value', (snapshot) => {
+                const traineesData = snapshot.val();
 
-        function loadTraineeStats() {
-            const results = getStorageData('results', []);
-            const traineeResults = results.filter(r =>
-                r.traineeId === currentUser.id
-            );
+                if (!traineesData) {
+                    document.getElementById('totalTrainees').textContent = '0';
+                    document.getElementById('totalCompletedQCM').textContent = '0';
+                    document.getElementById('averageSuccessRate').textContent = '0%';
+                    document.getElementById('detailedResults').innerHTML = '<p class="text-gray-500 text-center">Aucun résultat disponible</p>';
+                    return;
+                }
 
-            document.getElementById('traineeCompletedQCM').textContent = traineeResults.length;
+                const trainees = Object.values(traineesData);
+                document.getElementById('totalTrainees').textContent = trainees.length;
 
-            if (traineeResults.length > 0) {
-                const bestScore = Math.max(...traineeResults.map(r => r.score));
-                document.getElementById('traineeBestScore').textContent = bestScore + '%';
-            }
+                // Collecter tous les résultats
+                let allResults = [];
+                trainees.forEach(trainee => {
+                    if (trainee.results) {
+                        Object.values(trainee.results).forEach(result => {
+                            allResults.push(result);
+                        });
+                    }
+                });
 
-            const historyContainer = document.getElementById('traineeHistory');
-            if (traineeResults.length === 0) {
-                historyContainer.innerHTML = '<p class="text-gray-500 text-center">Aucun résultat disponible</p>';
-                return;
-            }
+                document.getElementById('totalCompletedQCM').textContent = allResults.length;
 
-            historyContainer.innerHTML = traineeResults.sort((a, b) =>
-                new Date(b.completedAt) - new Date(a.completedAt)
-            ).map(result => `
-                <div class="bg-white dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center">
-                    <div>
-                        <p class="font-semibold">SSIAP ${result.level}</p>
+                if (allResults.length > 0) {
+                    const avgScore = allResults.reduce((sum, r) => sum + r.score, 0) / allResults.length;
+                    document.getElementById('averageSuccessRate').textContent = Math.round(avgScore) + '%';
+                } else {
+                    document.getElementById('averageSuccessRate').textContent = '0%';
+                }
+
+                const detailedContainer = document.getElementById('detailedResults');
+                if (allResults.length === 0) {
+                    detailedContainer.innerHTML = '<p class="text-gray-500 text-center">Aucun résultat disponible</p>';
+                    return;
+                }
+
+                // Trier par date (plus récent en premier)
+                allResults.sort((a, b) => b.completedAt - a.completedAt);
+
+                detailedContainer.innerHTML = allResults.map(result => `
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-lg">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="font-semibold">${result.traineeName}</p>
+                            <span class="text-2xl font-bold ${result.score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                                ${result.score}%
+                            </span>
+                        </div>
                         <p class="text-sm text-gray-600 dark:text-gray-400">
+                            SSIAP ${result.level} - ${result.correctAnswers}/${result.totalQuestions} réponses correctes
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
                             ${new Date(result.completedAt).toLocaleString('fr-FR')}
                         </p>
                     </div>
-                    <div class="text-right">
-                        <p class="text-2xl font-bold ${result.score >= 60 ? 'text-green-600' : 'text-red-600'}">
-                            ${result.score}%
-                        </p>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            ${result.correctAnswers}/${result.totalQuestions}
-                        </p>
+                `).join('');
+            });
+        }
+
+        function loadTraineeStats() {
+            if (!sessionId || !currentUser.id) {
+                console.warn('⚠️ Pas de session ou utilisateur');
+                return;
+            }
+
+            // Charger les résultats du stagiaire depuis Firebase
+            database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results').once('value', (snapshot) => {
+                const resultsData = snapshot.val();
+
+                let traineeResults = [];
+                if (resultsData) {
+                    traineeResults = Object.values(resultsData);
+                }
+
+                document.getElementById('traineeCompletedQCM').textContent = traineeResults.length;
+
+                if (traineeResults.length > 0) {
+                    const bestScore = Math.max(...traineeResults.map(r => r.score));
+                    document.getElementById('traineeBestScore').textContent = bestScore + '%';
+                } else {
+                    document.getElementById('traineeBestScore').textContent = '0%';
+                }
+
+                const historyContainer = document.getElementById('traineeHistory');
+                if (traineeResults.length === 0) {
+                    historyContainer.innerHTML = '<p class="text-gray-500 text-center">Aucun résultat disponible</p>';
+                    return;
+                }
+
+                // Trier par date (plus récent en premier)
+                traineeResults.sort((a, b) => b.completedAt - a.completedAt);
+
+                historyContainer.innerHTML = traineeResults.map(result => `
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">SSIAP ${result.level}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                ${new Date(result.completedAt).toLocaleString('fr-FR')}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold ${result.score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                                ${result.score}%
+                            </p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                                ${result.correctAnswers}/${result.totalQuestions}
+                            </p>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            });
         }
 
         // Questions management
@@ -11219,13 +11262,25 @@
                 totalQuestions: currentQCM.length,
                 correctAnswers: correctCount,
                 score,
-                completedAt: new Date().toISOString(),
+                completedAt: Date.now(),
                 answers: userAnswers
             };
 
-            const results = getStorageData('results', []);
-            results.push(result);
-            setStorageData('results', results);
+            // Sauvegarder dans Firebase
+            if (sessionId && currentUser.id) {
+                const resultId = 'result_' + Date.now();
+
+                // Sauvegarder dans les résultats du stagiaire
+                database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results/' + resultId).set(result).then(() => {
+                    console.log('✅ Résultat sauvegardé dans Firebase');
+
+                    // Mettre à jour le score total du stagiaire
+                    database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastScore').set(score);
+                    database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastCompletedAt').set(Date.now());
+                }).catch((error) => {
+                    console.error('❌ Erreur sauvegarde résultat:', error);
+                });
+            }
 
             showResults(result);
         }
