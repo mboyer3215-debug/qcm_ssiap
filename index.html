@@ -10137,12 +10137,46 @@
                 currentUser = { type: 'supervisor', username };
                 userRole = 'supervisor';
 
-                // Créer une nouvelle session Firebase
-                createFirebaseSession();
+                // Chercher d'abord une session active existante
+                findOrCreateSupervisorSession();
             } else {
                 errorDiv.textContent = 'Identifiant ou mot de passe incorrect';
                 errorDiv.classList.remove('hidden');
             }
+        }
+
+        function findOrCreateSupervisorSession() {
+            console.log('🔍 Recherche d\'une session active...');
+
+            // Chercher une session active du superviseur
+            database.ref('sessions').orderByChild('supervisor').equalTo(currentUser.username).once('value', (snapshot) => {
+                const sessions = snapshot.val();
+
+                if (sessions) {
+                    // Trouver la session la plus récente avec status 'active'
+                    const sessionsArray = Object.entries(sessions).map(([id, data]) => ({
+                        id,
+                        ...data
+                    }));
+
+                    const activeSessions = sessionsArray.filter(s => s.status === 'active');
+
+                    if (activeSessions.length > 0) {
+                        // Trier par date de création (plus récente en premier)
+                        activeSessions.sort((a, b) => b.createdAt - a.createdAt);
+                        const latestSession = activeSessions[0];
+
+                        sessionId = latestSession.id;
+                        console.log('✅ Session active trouvée:', sessionId);
+                        showSupervisorDashboard();
+                        return;
+                    }
+                }
+
+                // Aucune session active trouvée, en créer une nouvelle
+                console.log('📝 Aucune session active, création d\'une nouvelle...');
+                createFirebaseSession();
+            });
         }
 
         function createFirebaseSession() {
@@ -10527,13 +10561,33 @@
         }
 
         function printActiveTrainees() {
-            const trainees = getStorageData('trainees', []);
-            const activeTrainees = trainees.filter(t => t.status === 'actif');
-
-            if (activeTrainees.length === 0) {
-                showCustomAlert('Aucun stagiaire actif à imprimer');
+            if (!sessionId) {
+                showCustomAlert('Pas de session active');
                 return;
             }
+
+            // Charger depuis Firebase
+            database.ref('sessions/' + sessionId + '/trainees').once('value', (snapshot) => {
+                const traineesData = snapshot.val();
+
+                if (!traineesData) {
+                    showCustomAlert('Aucun stagiaire à imprimer');
+                    return;
+                }
+
+                const trainees = Object.values(traineesData);
+                const activeTrainees = trainees.filter(t => t.status === 'actif');
+
+                if (activeTrainees.length === 0) {
+                    showCustomAlert('Aucun stagiaire actif à imprimer');
+                    return;
+                }
+
+                generatePrintDocument(activeTrainees);
+            });
+        }
+
+        function generatePrintDocument(activeTrainees) {
 
             // Créer une nouvelle fenêtre pour l'impression
             const printWindow = document.createElement('div');
@@ -10647,17 +10701,41 @@
 
         function deleteTrainee(id) {
             showCustomConfirm('Êtes-vous sûr de vouloir supprimer ce stagiaire ?', () => {
-                const trainees = getStorageData('trainees', []);
-                const filtered = trainees.filter(t => t.id !== id);
-                setStorageData('trainees', filtered);
-                loadTraineesList();
+                if (!sessionId) {
+                    showCustomAlert('Pas de session active');
+                    return;
+                }
+
+                // Supprimer de Firebase
+                database.ref('sessions/' + sessionId + '/trainees/' + id).remove().then(() => {
+                    console.log('✅ Stagiaire supprimé');
+                    loadTraineesList();
+                }).catch((error) => {
+                    console.error('❌ Erreur suppression:', error);
+                    showCustomAlert('Erreur lors de la suppression: ' + error.message);
+                });
             });
         }
 
         function editTrainee(id) {
-            const trainees = getStorageData('trainees', []);
-            const trainee = trainees.find(t => t.id === id);
-            if (!trainee) return;
+            if (!sessionId) {
+                showCustomAlert('Pas de session active');
+                return;
+            }
+
+            // Charger depuis Firebase
+            database.ref('sessions/' + sessionId + '/trainees/' + id).once('value', (snapshot) => {
+                const trainee = snapshot.val();
+                if (!trainee) {
+                    showCustomAlert('Stagiaire non trouvé');
+                    return;
+                }
+
+                showEditTraineeModal(trainee);
+            });
+        }
+
+        function showEditTraineeModal(trainee) {
 
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
@@ -10702,7 +10780,7 @@
                             <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-opacity-90">
                                 Annuler
                             </button>
-                            <button onclick="saveEditedTrainee(${id})" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-opacity-90">
+                            <button onclick="saveEditedTrainee('${trainee.id}')" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-opacity-90">
                                 Enregistrer
                             </button>
                         </div>
@@ -10732,13 +10810,13 @@
                 return;
             }
 
-            const trainees = getStorageData('trainees', []);
-            const traineeIndex = trainees.findIndex(t => t.id === id);
-            if (traineeIndex === -1) return;
+            if (!sessionId) {
+                showCustomAlert('Pas de session active');
+                return;
+            }
 
-            // Conserver le PIN et le statut
-            trainees[traineeIndex] = {
-                ...trainees[traineeIndex],
+            // Mettre à jour dans Firebase (conserver PIN et statut)
+            const updates = {
                 lastName,
                 firstName,
                 email,
@@ -10747,13 +10825,18 @@
                 endDate
             };
 
-            setStorageData('trainees', trainees);
+            database.ref('sessions/' + sessionId + '/trainees/' + id).update(updates).then(() => {
+                console.log('✅ Stagiaire modifié');
 
-            // Fermer le modal
-            document.querySelector('.fixed.inset-0').remove();
+                // Fermer le modal
+                document.querySelector('.fixed.inset-0').remove();
 
-            loadTraineesList();
-            showCustomAlert('Stagiaire modifié avec succès');
+                loadTraineesList();
+                showCustomAlert('Stagiaire modifié avec succès');
+            }).catch((error) => {
+                console.error('❌ Erreur modification:', error);
+                showCustomAlert('Erreur lors de la modification: ' + error.message);
+            });
         }
 
         function reactivateTrainee(id) {
@@ -10802,34 +10885,39 @@
                 return;
             }
 
-            const trainees = getStorageData('trainees', []);
-            const traineeIndex = trainees.findIndex(t => t.id === id);
-            if (traineeIndex === -1) return;
+            if (!sessionId) {
+                showCustomAlert('Pas de session active');
+                return;
+            }
 
             // Générer un nouveau PIN unique
-            let newPinCode;
-            do {
-                newPinCode = generatePinCode();
-            } while (trainees.some(t => t.pinCode === newPinCode));
+            const newPinCode = generatePinCode();
 
-            // Réactiver avec nouveau PIN et nouvelles dates
-            trainees[traineeIndex] = {
-                ...trainees[traineeIndex],
+            // Mettre à jour dans Firebase
+            const updates = {
                 startDate,
                 endDate,
                 pinCode: newPinCode,
                 status: 'actif'
             };
 
-            setStorageData('trainees', trainees);
+            database.ref('sessions/' + sessionId + '/trainees/' + id).update(updates).then(() => {
+                console.log('✅ Stagiaire réactivé');
 
-            // Fermer le modal
-            document.querySelector('.fixed.inset-0').remove();
+                // Fermer le modal
+                document.querySelector('.fixed.inset-0').remove();
 
-            loadTraineesList();
+                loadTraineesList();
 
-            // Afficher le nouveau PIN
-            showPinCodeModal(trainees[traineeIndex]);
+                // Charger le stagiaire mis à jour pour afficher le PIN
+                return database.ref('sessions/' + sessionId + '/trainees/' + id).once('value');
+            }).then((snapshot) => {
+                const updatedTrainee = snapshot.val();
+                showPinCodeModal(updatedTrainee);
+            }).catch((error) => {
+                console.error('❌ Erreur réactivation:', error);
+                showCustomAlert('Erreur lors de la réactivation: ' + error.message);
+            });
         }
 
         function showTraineePinCode(trainee) {
