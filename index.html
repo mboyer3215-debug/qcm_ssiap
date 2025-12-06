@@ -8,6 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -9945,7 +9949,27 @@
                     ]
         };
 
-        // In-memory storage (since localStorage is not available in iframe)
+        // Configuration Firebase - Base de données en temps réel
+        const firebaseConfig = {
+            apiKey: "AIzaSyD_9HqhcopyF1pNE88CIzgVqEgKU1xJM0",
+            authDomain: "qcm-game-f3c42.firebaseapp.com",
+            databaseURL: "https://qcm-game-f3c42-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "qcm-game-f3c42",
+            storageBucket: "qcm-game-f3c42.firebasestorage.app",
+            messagingSenderId: "910475068019",
+            appId: "1:910475068019:web:8a359e2fb91de1e8d8b9c8"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        console.log('🔥 Firebase initialisé pour QCM SSIAP');
+
+        // Variables de session
+        let sessionId = null;
+        let userRole = null; // 'supervisor' ou 'trainee'
+        let currentTraineeData = null;
+
         // Configuration EmailJS - À REMPLACER PAR VOS CLÉS
         const EMAILJS_CONFIG = {
             publicKey: "GHkBYX0OJ8ZHGtxBO",  // Remplacez par votre Public Key
@@ -10111,11 +10135,38 @@
 
             if (username === DEFAULT_SUPERVISOR.username && password === DEFAULT_SUPERVISOR.password) {
                 currentUser = { type: 'supervisor', username };
-                showSupervisorDashboard();
+                userRole = 'supervisor';
+
+                // Créer une nouvelle session Firebase
+                createFirebaseSession();
             } else {
                 errorDiv.textContent = 'Identifiant ou mot de passe incorrect';
                 errorDiv.classList.remove('hidden');
             }
+        }
+
+        function createFirebaseSession() {
+            // Générer un ID de session unique
+            sessionId = 'ssiap_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            console.log('🔥 Création de la session:', sessionId);
+
+            // Créer la session dans Firebase
+            database.ref('sessions/' + sessionId).set({
+                supervisor: currentUser.username,
+                createdAt: Date.now(),
+                status: 'active',
+                trainees: {},
+                questions: EMBEDDED_QUESTIONS
+            }).then(() => {
+                console.log('✅ Session créée avec succès');
+                showSupervisorDashboard();
+            }).catch((error) => {
+                console.error('❌ Erreur lors de la création de la session:', error);
+                const errorDiv = document.getElementById('supervisorLoginError');
+                errorDiv.textContent = 'Erreur lors de la création de la session: ' + error.message;
+                errorDiv.classList.remove('hidden');
+            });
         }
 
         function loginTraineeWithPin() {
@@ -10128,65 +10179,71 @@
                 return;
             }
 
-            const trainees = getStorageData('trainees', []);
+            console.log('🔍 Recherche du PIN:', pinCode);
 
-            // Debug: afficher les PINs disponibles
-            console.log('🔍 PIN saisi:', pinCode, 'Type:', typeof pinCode);
-            console.log('🔍 Nombre de stagiaires:', trainees.length);
-            console.log('🔍 PINs disponibles:', trainees.map(t => ({
-                name: t.firstName + ' ' + t.lastName,
-                pin: t.pinCode,
-                type: typeof t.pinCode,
-                pinString: String(t.pinCode),
-                match: String(t.pinCode).trim() === String(pinCode).trim()
-            })));
+            // Chercher dans toutes les sessions actives
+            database.ref('sessions').once('value', (snapshot) => {
+                const sessions = snapshot.val();
 
-            // Comparaison tolérante : convertir les deux en string
-            const trainee = trainees.find(t => String(t.pinCode).trim() === String(pinCode).trim());
+                if (!sessions) {
+                    errorDiv.textContent = 'Aucune session active. Contactez votre superviseur.';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
 
-            if (!trainee) {
-                // Message d'erreur détaillé avec debug
-                const debugInfo = trainees.length > 0
-                    ? `\n\nDebug: ${trainees.length} stagiaire(s) trouvé(s).\nPINs disponibles: ${trainees.map(t => String(t.pinCode)).join(', ')}\nVotre PIN: "${pinCode}" (longueur: ${pinCode.length})`
-                    : '\n\nAucun stagiaire enregistré dans le système.';
+                let foundTrainee = null;
+                let foundSessionId = null;
 
-                errorDiv.innerHTML = `Code PIN invalide. Contactez votre superviseur.${debugInfo.replace(/\n/g, '<br>')}`;
+                // Parcourir toutes les sessions
+                Object.entries(sessions).forEach(([sessId, session]) => {
+                    if (session.trainees) {
+                        Object.values(session.trainees).forEach(trainee => {
+                            if (String(trainee.pinCode).trim() === String(pinCode).trim()) {
+                                foundTrainee = trainee;
+                                foundSessionId = sessId;
+                            }
+                        });
+                    }
+                });
+
+                if (!foundTrainee) {
+                    errorDiv.textContent = 'Code PIN invalide. Contactez votre superviseur.';
+                    errorDiv.classList.remove('hidden');
+                    console.error('❌ PIN non trouvé');
+                    return;
+                }
+
+                console.log('✅ Stagiaire trouvé:', foundTrainee.firstName, foundTrainee.lastName);
+
+                const now = new Date();
+                const startDate = new Date(foundTrainee.startDate);
+                const endDate = new Date(foundTrainee.endDate);
+
+                if (now < startDate) {
+                    errorDiv.textContent = 'Votre accès n\'a pas encore commencé.';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+
+                if (now > endDate) {
+                    errorDiv.textContent = 'Votre accès a expiré. Contactez votre superviseur.';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+
+                // Connexion réussie
+                console.log('🎉 Connexion réussie !');
+                sessionId = foundSessionId;
+                userRole = 'trainee';
+                currentUser = { type: 'trainee', ...foundTrainee };
+                currentTraineeData = foundTrainee;
+
+                showTraineeDashboard();
+            }).catch((error) => {
+                console.error('❌ Erreur Firebase:', error);
+                errorDiv.textContent = 'Erreur de connexion: ' + error.message;
                 errorDiv.classList.remove('hidden');
-                console.error('❌ Connexion échouée');
-                return;
-            }
-
-            console.log('✅ Stagiaire trouvé:', trainee.firstName, trainee.lastName);
-
-            const now = new Date();
-            const startDate = new Date(trainee.startDate);
-            const endDate = new Date(trainee.endDate);
-
-            console.log('📅 Vérification des dates:', {
-                maintenant: now.toISOString(),
-                debut: startDate.toISOString(),
-                fin: endDate.toISOString(),
-                aCommence: now >= startDate,
-                nonExpire: now <= endDate
             });
-
-            if (now < startDate) {
-                errorDiv.textContent = 'Votre accès n\'a pas encore commencé.';
-                errorDiv.classList.remove('hidden');
-                console.error('❌ Accès pas encore commencé');
-                return;
-            }
-
-            if (now > endDate) {
-                errorDiv.textContent = 'Votre accès a expiré. Contactez votre superviseur.';
-                errorDiv.classList.remove('hidden');
-                console.error('❌ Accès expiré');
-                return;
-            }
-
-            console.log('🎉 Connexion réussie !');
-            currentUser = { type: 'trainee', ...trainee };
-            showTraineeDashboard();
         }
 
         function logout() {
@@ -10315,16 +10372,17 @@
                 return;
             }
 
-            const trainees = getStorageData('trainees', []);
+            if (!sessionId) {
+                showCustomAlert('Erreur: session non initialisée');
+                return;
+            }
 
-            // Generate unique PIN
-            let pinCode;
-            do {
-                pinCode = generatePinCode();
-            } while (trainees.some(t => t.pinCode === pinCode));
+            // Générer un PIN unique
+            const pinCode = generatePinCode();
 
+            const traineeId = 'trainee_' + Date.now();
             const newTrainee = {
-                id: Date.now(),
+                id: traineeId,
                 lastName,
                 firstName,
                 email,
@@ -10333,22 +10391,30 @@
                 endDate,
                 pinCode,
                 status: 'actif',
-                createdAt: new Date().toISOString()
+                createdAt: Date.now(),
+                score: 0,
+                results: []
             };
 
-            trainees.push(newTrainee);
-            setStorageData('trainees', trainees);
+            // Sauvegarder dans Firebase
+            database.ref('sessions/' + sessionId + '/trainees/' + traineeId).set(newTrainee).then(() => {
+                console.log('✅ Stagiaire ajouté dans Firebase:', traineeId);
 
-            document.getElementById('newTraineeLastName').value = '';
-            document.getElementById('newTraineeFirstName').value = '';
-            document.getElementById('newTraineeEmail').value = '';
-            document.getElementById('newTraineeStartDate').value = '';
-            document.getElementById('newTraineeEndDate').value = '';
+                // Vider les champs
+                document.getElementById('newTraineeLastName').value = '';
+                document.getElementById('newTraineeFirstName').value = '';
+                document.getElementById('newTraineeEmail').value = '';
+                document.getElementById('newTraineeStartDate').value = '';
+                document.getElementById('newTraineeEndDate').value = '';
 
-            loadTraineesList();
+                loadTraineesList();
 
-            // Show PIN in alert
-            showPinCodeModal(newTrainee);
+                // Afficher le modal avec le PIN
+                showPinCodeModal(newTrainee);
+            }).catch((error) => {
+                console.error('❌ Erreur lors de l\'ajout du stagiaire:', error);
+                showCustomAlert('Erreur lors de l\'ajout du stagiaire: ' + error.message);
+            });
         }
 
         function showPinCodeModal(trainee) {
@@ -10772,41 +10838,55 @@
         }
 
         function loadTraineesList() {
-            let trainees = getStorageData('trainees', []);
-            const now = new Date();
-
-            // Archivage automatique des stagiaires dont la date de fin est passée
-            let hasChanges = false;
-            trainees = trainees.map(trainee => {
-                const endDate = new Date(trainee.endDate);
-                if (now > endDate && trainee.status === 'actif') {
-                    trainee.status = 'archivé';
-                    hasChanges = true;
-                }
-                return trainee;
-            });
-
-            if (hasChanges) {
-                setStorageData('trainees', trainees);
-            }
-
-            // Appliquer le filtre de statut
-            const filterStatus = document.getElementById('filterTraineesStatus')?.value || 'actif';
-            let filteredTrainees = trainees;
-
-            if (filterStatus !== 'tous') {
-                filteredTrainees = trainees.filter(t => t.status === filterStatus);
+            if (!sessionId) {
+                console.warn('⚠️ Pas de session active');
+                return;
             }
 
             const container = document.getElementById('traineesList');
+            const filterStatus = document.getElementById('filterTraineesStatus')?.value || 'actif';
 
-            if (filteredTrainees.length === 0) {
-                const message = filterStatus === 'actif' ? 'Aucun stagiaire actif' :
-                               filterStatus === 'archivé' ? 'Aucun stagiaire archivé' :
-                               'Aucun stagiaire enregistré';
-                container.innerHTML = `<p class="text-gray-500 text-center">${message}</p>`;
-                return;
-            }
+            // Charger depuis Firebase
+            database.ref('sessions/' + sessionId + '/trainees').once('value', (snapshot) => {
+                const traineesData = snapshot.val();
+
+                if (!traineesData) {
+                    const message = 'Aucun stagiaire enregistré';
+                    container.innerHTML = `<p class="text-gray-500 text-center">${message}</p>`;
+                    return;
+                }
+
+                // Convertir en array
+                let trainees = Object.values(traineesData);
+                const now = new Date();
+
+                // Archivage automatique des stagiaires dont la date de fin est passée
+                const updates = {};
+                trainees.forEach(trainee => {
+                    const endDate = new Date(trainee.endDate);
+                    if (now > endDate && trainee.status === 'actif') {
+                        trainee.status = 'archivé';
+                        updates['sessions/' + sessionId + '/trainees/' + trainee.id + '/status'] = 'archivé';
+                    }
+                });
+
+                if (Object.keys(updates).length > 0) {
+                    database.ref().update(updates);
+                }
+
+                // Appliquer le filtre de statut
+                let filteredTrainees = trainees;
+                if (filterStatus !== 'tous') {
+                    filteredTrainees = trainees.filter(t => t.status === filterStatus);
+                }
+
+                if (filteredTrainees.length === 0) {
+                    const message = filterStatus === 'actif' ? 'Aucun stagiaire actif' :
+                                   filterStatus === 'archivé' ? 'Aucun stagiaire archivé' :
+                                   'Aucun stagiaire enregistré';
+                    container.innerHTML = `<p class="text-gray-500 text-center">${message}</p>`;
+                    return;
+                }
 
             container.innerHTML = filteredTrainees.map(trainee => {
                 const isArchived = trainee.status === 'archivé';
@@ -10870,6 +10950,7 @@
             countInfo.className = 'text-sm text-gray-600 dark:text-gray-400 mb-3 trainees-count';
             countInfo.textContent = `Total : ${trainees.length} stagiaires (${totalActifs} actifs, ${totalArchives} archivés)`;
             container.parentNode.insertBefore(countInfo, container);
+            }); // Fermeture du callback Firebase
         }
 
         // Statistics
