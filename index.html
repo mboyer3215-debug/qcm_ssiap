@@ -10247,19 +10247,33 @@
                 }
 
                 console.log('✅ Stagiaire trouvé:', foundTrainee.firstName, foundTrainee.lastName);
+                console.log('📅 Dates du stagiaire:', {
+                    startDate: foundTrainee.startDate,
+                    endDate: foundTrainee.endDate
+                });
 
+                // Comparer seulement les dates (sans l'heure) pour éviter les problèmes de timezone
                 const now = new Date();
-                const startDate = new Date(foundTrainee.startDate);
-                const endDate = new Date(foundTrainee.endDate);
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const startDate = new Date(foundTrainee.startDate + 'T00:00:00');
+                const endDate = new Date(foundTrainee.endDate + 'T23:59:59');
 
-                if (now < startDate) {
-                    errorDiv.textContent = 'Votre accès n\'a pas encore commencé.';
+                console.log('📅 Comparaison:', {
+                    today: today.toISOString(),
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    isBeforeStart: today < startDate,
+                    isAfterEnd: today > endDate
+                });
+
+                if (today < startDate) {
+                    errorDiv.textContent = 'Votre accès n\'a pas encore commencé (début: ' + foundTrainee.startDate + ').';
                     errorDiv.classList.remove('hidden');
                     return;
                 }
 
-                if (now > endDate) {
-                    errorDiv.textContent = 'Votre accès a expiré. Contactez votre superviseur.';
+                if (today > endDate) {
+                    errorDiv.textContent = 'Votre accès a expiré (fin: ' + foundTrainee.endDate + '). Contactez votre superviseur.';
                     errorDiv.classList.remove('hidden');
                     return;
                 }
@@ -11008,15 +11022,15 @@
                                     ${trainee.email ? `<button onclick='sendPinByEmail(${JSON.stringify(trainee).replace(/'/g, "\\'")})'  class="bg-purple-500 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
                                         📧 Envoyer PIN
                                     </button>` : ''}
-                                    <button onclick="editTrainee(${trainee.id})" class="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
+                                    <button onclick="editTrainee('${trainee.id}')" class="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
                                         Modifier
                                     </button>
                                 ` : `
-                                    <button onclick="reactivateTrainee(${trainee.id})" class="bg-green-600 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
+                                    <button onclick="reactivateTrainee('${trainee.id}')" class="bg-green-600 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
                                         Réactiver
                                     </button>
                                 `}
-                                <button onclick="deleteTrainee(${trainee.id})" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
+                                <button onclick="deleteTrainee('${trainee.id}')" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-opacity-90 text-sm">
                                     Supprimer
                                 </button>
                             </div>
