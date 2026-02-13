@@ -11475,11 +11475,21 @@ function submitQCM() {
         
             const reviewContainer = document.getElementById('answersReview');
             reviewContainer.innerHTML = currentQCM.map((question, index) => {
+                
                 // ✅ UTILISER normalizeAnswers
                 const userAnswer = normalizeAnswers(userAnswers[index]);
                 const correctAnswer = normalizeAnswers(question.correctAnswers);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
-        
+                
+                    // 🔍 DEBUG - Ajouter ceci
+                console.log(`[showResults] Q${index + 1}:`, {
+                    userAnswer,
+                    correctAnswer,
+                    isCorrect,
+                    userJSON: JSON.stringify(userAnswer),
+                    correctJSON: JSON.stringify(correctAnswer)
+                });
+            
                 return `
                     <div class="bg-white dark:bg-gray-700 p-6 rounded-lg">
                         <div class="flex items-start justify-between mb-3">
