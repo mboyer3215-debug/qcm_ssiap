@@ -11347,8 +11347,8 @@
             let correctCount = 0;
 
             currentQCM.forEach((question, index) => {
-                const userAnswer = userAnswers[index].sort();
-                const correctAnswer = question.correctAnswers.sort();
+                const userAnswer = [...(userAnswers[index] || [])].sort();
+                const correctAnswer = [...(question.correctAnswers || [])].sort();
 
                 if (JSON.stringify(userAnswer) === JSON.stringify(correctAnswer)) {
                     correctCount++;
