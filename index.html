@@ -490,6 +490,8 @@
             password: '3215'
         };
 
+
+        
         // Embedded sample questions (fallback if JSON files are not available)
         const EMBEDDED_QUESTIONS = {
                     "1": [
@@ -11339,6 +11341,20 @@
             timerInterval = setInterval(updateTimer, 1000);
         }
 
+        // ✅ Fonction utilitaire pour normaliser les réponses en tableau
+        function normalizeAnswers(answer) {
+            // Si undefined ou null, retourner tableau vide
+            if (answer === undefined || answer === null) {
+                return [];
+            }
+            // Si c'est déjà un tableau, le copier et trier
+            if (Array.isArray(answer)) {
+                return [...answer].map(Number).sort((a, b) => a - b);
+            }
+            // Si c'est un nombre ou une chaîne simple, le mettre dans un tableau
+            return [Number(answer)];
+        }
+        
         function submitQCM() {
             if (timerInterval) {
                 clearInterval(timerInterval);
@@ -11347,9 +11363,9 @@
             let correctCount = 0;
         
             currentQCM.forEach((question, index) => {
-                // ✅ Protection + copie + tri numérique
-                const userAnswer = [...(userAnswers[index] || [])].map(Number).sort((a, b) => a - b);
-                const correctAnswer = [...(question.correctAnswers || [])].map(Number).sort((a, b) => a - b);
+                // ✅ Utiliser la fonction de normalisation
+                const userAnswer = normalizeAnswers(userAnswers[index]);
+                const correctAnswer = normalizeAnswers(question.correctAnswers);
         
                 if (JSON.stringify(userAnswer) === JSON.stringify(correctAnswer)) {
                     correctCount++;
@@ -11369,7 +11385,6 @@
                 answers: userAnswers
             };
         
-            // Sauvegarder dans Firebase
             if (sessionId && currentUser.id) {
                 const resultId = 'result_' + Date.now();
         
@@ -11389,16 +11404,13 @@
             document.getElementById('qcmScreen').classList.add('hidden');
             document.getElementById('resultsScreen').classList.remove('hidden');
         
-            // Afficher le score
             document.getElementById('finalScore').textContent = result.score + '%';
             document.getElementById('correctAnswers').textContent = result.correctAnswers;
             document.getElementById('totalQuestionsResult').textContent = result.totalQuestions;
         
-            // Calculer la note sur 20
             const noteSur20 = (result.score * 20 / 100).toFixed(1);
             document.getElementById('note20').textContent = noteSur20;
         
-            // Afficher le statut de validation (60% = 12/20)
             const isValidated = result.score >= 60;
             const validationStatus = document.getElementById('validationStatus');
             if (isValidated) {
@@ -11409,11 +11421,9 @@
                 validationStatus.className = 'text-3xl font-bold mb-4 text-red-600 dark:text-red-400';
             }
         
-            // Afficher le message d'encouragement
             const encouragementMessage = getEncouragementMessage(result.score);
             document.getElementById('encouragementText').innerHTML = encouragementMessage;
         
-            // Analyser les résultats et afficher points forts/faibles
             const analysis = analyzePerformance(userAnswers, currentQCM);
             let analysisHTML = '';
         
@@ -11439,12 +11449,11 @@
         
             document.getElementById('strengthsWeaknesses').innerHTML = analysisHTML;
         
-            // ✅ CORRECTION ICI - Génération de la review avec protection
             const reviewContainer = document.getElementById('answersReview');
             reviewContainer.innerHTML = currentQCM.map((question, index) => {
-                // ✅ Protection + copie + tri numérique (CORRIGÉ!)
-                const userAnswer = [...(userAnswers[index] || [])].map(Number).sort((a, b) => a - b);
-                const correctAnswer = [...(question.correctAnswers || [])].map(Number).sort((a, b) => a - b);
+                // ✅ Utiliser la fonction de normalisation
+                const userAnswer = normalizeAnswers(userAnswers[index]);
+                const correctAnswer = normalizeAnswers(question.correctAnswers);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
         
                 return `
@@ -11552,27 +11561,24 @@
         }
 
         function analyzePerformance(userAnswers, questions) {
-            // Analyser par thème (simplifié - on peut améliorer avec métadonnées)
             const themes = {};
         
             questions.forEach((question, index) => {
-                // Extraire un thème simplifié du début de la question
                 const theme = question.question.substring(0, 30) + "...";
         
                 if (!themes[theme]) {
                     themes[theme] = { correct: 0, total: 0 };
                 }
         
-                // ✅ CORRECTION : Protection + copie + tri numérique
-                const userAnswer = [...(userAnswers[index] || [])].map(Number).sort((a, b) => a - b);
-                const correctAnswer = [...(question.correctAnswers || [])].map(Number).sort((a, b) => a - b);
+                // ✅ Utiliser la fonction de normalisation
+                const userAnswer = normalizeAnswers(userAnswers[index]);
+                const correctAnswer = normalizeAnswers(question.correctAnswers);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
         
                 if (isCorrect) themes[theme].correct++;
                 themes[theme].total++;
             });
         
-            // Identifier points forts et faibles
             const strengths = [];
             const weaknesses = [];
         
