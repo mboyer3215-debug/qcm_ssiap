@@ -11554,27 +11554,28 @@
         function analyzePerformance(userAnswers, questions) {
             // Analyser par thème (simplifié - on peut améliorer avec métadonnées)
             const themes = {};
-
+        
             questions.forEach((question, index) => {
                 // Extraire un thème simplifié du début de la question
                 const theme = question.question.substring(0, 30) + "...";
-
+        
                 if (!themes[theme]) {
                     themes[theme] = { correct: 0, total: 0 };
                 }
-
-                const userAnswer = userAnswers[index].sort();
-                const correctAnswer = question.correctAnswers.sort();
+        
+                // ✅ CORRECTION : Protection + copie + tri numérique
+                const userAnswer = [...(userAnswers[index] || [])].map(Number).sort((a, b) => a - b);
+                const correctAnswer = [...(question.correctAnswers || [])].map(Number).sort((a, b) => a - b);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
-
+        
                 if (isCorrect) themes[theme].correct++;
                 themes[theme].total++;
             });
-
+        
             // Identifier points forts et faibles
             const strengths = [];
             const weaknesses = [];
-
+        
             Object.entries(themes).forEach(([theme, stats]) => {
                 const percentage = (stats.correct / stats.total) * 100;
                 if (percentage > 75 && stats.total >= 2) {
@@ -11583,10 +11584,9 @@
                     weaknesses.push(`${theme} (${stats.correct}/${stats.total} - ${Math.round(percentage)}%)`);
                 }
             });
-
+        
             return { strengths, weaknesses };
         }
-
         // ========================================
         // GESTION DES QUESTIONS (CRUD)
         // ========================================
