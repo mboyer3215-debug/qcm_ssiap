@@ -11363,7 +11363,6 @@
             let correctCount = 0;
         
             currentQCM.forEach((question, index) => {
-                // ✅ Utiliser la fonction de normalisation
                 const userAnswer = normalizeAnswers(userAnswers[index]);
                 const correctAnswer = normalizeAnswers(question.correctAnswers);
         
@@ -11387,7 +11386,6 @@
         
             if (sessionId && currentUser.id) {
                 const resultId = 'result_' + Date.now();
-        
                 database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results/' + resultId).set(result).then(() => {
                     console.log('✅ Résultat sauvegardé dans Firebase');
                     database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastScore').set(score);
@@ -11451,7 +11449,7 @@
         
             const reviewContainer = document.getElementById('answersReview');
             reviewContainer.innerHTML = currentQCM.map((question, index) => {
-                // ✅ Utiliser la fonction de normalisation
+                // ✅ UTILISER normalizeAnswers
                 const userAnswer = normalizeAnswers(userAnswers[index]);
                 const correctAnswer = normalizeAnswers(question.correctAnswers);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
@@ -11502,7 +11500,6 @@
                 `;
             }).join('');
         }
-
         function backToTraineeDashboard() {
             document.getElementById('resultsScreen').classList.add('hidden');
             document.getElementById('traineeDashboard').classList.remove('hidden');
@@ -11570,7 +11567,7 @@
                     themes[theme] = { correct: 0, total: 0 };
                 }
         
-                // ✅ Utiliser la fonction de normalisation
+                // ✅ UTILISER normalizeAnswers
                 const userAnswer = normalizeAnswers(userAnswers[index]);
                 const correctAnswer = normalizeAnswers(question.correctAnswers);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
