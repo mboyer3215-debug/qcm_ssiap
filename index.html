@@ -10369,7 +10369,7 @@
             document.getElementById('traineeWelcome').textContent = `Bienvenue ${currentUser.firstName} ${currentUser.lastName}`;
             document.getElementById('traineeLevel').textContent = `SSIAP Niveau ${currentUser.level}`;
 
-            const questionCount = currentUser.level === 1 ? 30 : 40;
+            const questionCount = currentUser.level === 1 ? 5 : 5;
             document.getElementById('qcmInfo').textContent = `${questionCount} questions - 1 minute par question - Plusieurs réponses possibles`;
 
             loadTraineeStats();
