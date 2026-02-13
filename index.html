@@ -11343,20 +11343,21 @@
             if (timerInterval) {
                 clearInterval(timerInterval);
             }
-
+        
             let correctCount = 0;
-
+        
             currentQCM.forEach((question, index) => {
-                const userAnswer = [...(userAnswers[index] || [])].sort();
-                const correctAnswer = [...(question.correctAnswers || [])].sort();
-
+                // ✅ Protection + copie + tri numérique
+                const userAnswer = [...(userAnswers[index] || [])].map(Number).sort((a, b) => a - b);
+                const correctAnswer = [...(question.correctAnswers || [])].map(Number).sort((a, b) => a - b);
+        
                 if (JSON.stringify(userAnswer) === JSON.stringify(correctAnswer)) {
                     correctCount++;
                 }
             });
-
+        
             const score = Math.round((correctCount / currentQCM.length) * 100);
-
+        
             const result = {
                 traineeId: currentUser.id,
                 traineeName: `${currentUser.firstName} ${currentUser.lastName}`,
@@ -11367,39 +11368,36 @@
                 completedAt: Date.now(),
                 answers: userAnswers
             };
-
+        
             // Sauvegarder dans Firebase
             if (sessionId && currentUser.id) {
                 const resultId = 'result_' + Date.now();
-
-                // Sauvegarder dans les résultats du stagiaire
+        
                 database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results/' + resultId).set(result).then(() => {
                     console.log('✅ Résultat sauvegardé dans Firebase');
-
-                    // Mettre à jour le score total du stagiaire
                     database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastScore').set(score);
                     database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastCompletedAt').set(Date.now());
                 }).catch((error) => {
                     console.error('❌ Erreur sauvegarde résultat:', error);
                 });
             }
-
+        
             showResults(result);
         }
-
+        
         function showResults(result) {
             document.getElementById('qcmScreen').classList.add('hidden');
             document.getElementById('resultsScreen').classList.remove('hidden');
-
+        
             // Afficher le score
             document.getElementById('finalScore').textContent = result.score + '%';
             document.getElementById('correctAnswers').textContent = result.correctAnswers;
             document.getElementById('totalQuestionsResult').textContent = result.totalQuestions;
-
+        
             // Calculer la note sur 20
             const noteSur20 = (result.score * 20 / 100).toFixed(1);
             document.getElementById('note20').textContent = noteSur20;
-
+        
             // Afficher le statut de validation (60% = 12/20)
             const isValidated = result.score >= 60;
             const validationStatus = document.getElementById('validationStatus');
@@ -11410,15 +11408,15 @@
                 validationStatus.textContent = '❌ NON VALIDÉ';
                 validationStatus.className = 'text-3xl font-bold mb-4 text-red-600 dark:text-red-400';
             }
-
+        
             // Afficher le message d'encouragement
             const encouragementMessage = getEncouragementMessage(result.score);
             document.getElementById('encouragementText').innerHTML = encouragementMessage;
-
+        
             // Analyser les résultats et afficher points forts/faibles
             const analysis = analyzePerformance(userAnswers, currentQCM);
             let analysisHTML = '';
-
+        
             if (analysis.strengths.length > 0) {
                 analysisHTML += '<div class="mb-4"><h4 class="font-semibold text-green-600 dark:text-green-400 mb-2">💪 Points forts :</h4><ul class="list-disc list-inside space-y-1">';
                 analysis.strengths.forEach(strength => {
@@ -11426,7 +11424,7 @@
                 });
                 analysisHTML += '</ul></div>';
             }
-
+        
             if (analysis.weaknesses.length > 0) {
                 analysisHTML += '<div class="mb-4"><h4 class="font-semibold text-red-600 dark:text-red-400 mb-2">⚠️ Points à améliorer :</h4><ul class="list-disc list-inside space-y-1">';
                 analysis.weaknesses.forEach(weakness => {
@@ -11434,19 +11432,21 @@
                 });
                 analysisHTML += '</ul></div>';
             }
-
+        
             if (analysis.strengths.length === 0 && analysis.weaknesses.length === 0) {
                 analysisHTML = '<p class="text-gray-600 dark:text-gray-400">Continuez à vous entraîner pour identifier vos points forts et axes d\'amélioration.</p>';
             }
-
+        
             document.getElementById('strengthsWeaknesses').innerHTML = analysisHTML;
-
+        
+            // ✅ CORRECTION ICI - Génération de la review avec protection
             const reviewContainer = document.getElementById('answersReview');
             reviewContainer.innerHTML = currentQCM.map((question, index) => {
-                const userAnswer = userAnswers[index].sort();
-                const correctAnswer = question.correctAnswers.sort();
+                // ✅ Protection + copie + tri numérique (CORRIGÉ!)
+                const userAnswer = [...(userAnswers[index] || [])].map(Number).sort((a, b) => a - b);
+                const correctAnswer = [...(question.correctAnswers || [])].map(Number).sort((a, b) => a - b);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
-
+        
                 return `
                     <div class="bg-white dark:bg-gray-700 p-6 rounded-lg">
                         <div class="flex items-start justify-between mb-3">
@@ -11455,19 +11455,19 @@
                                 ${isCorrect ? 'Correct' : 'Incorrect'}
                             </span>
                         </div>
-
+        
                         <div class="space-y-2 mb-4">
                             ${question.options.map((option, optIndex) => {
                                 const isUserAnswer = userAnswer.includes(optIndex);
                                 const isCorrectAnswer = correctAnswer.includes(optIndex);
                                 let bgClass = '';
-
+        
                                 if (isCorrectAnswer) {
                                     bgClass = 'bg-green-100 dark:bg-green-900 border-green-500';
                                 } else if (isUserAnswer && !isCorrectAnswer) {
                                     bgClass = 'bg-red-100 dark:bg-red-900 border-red-500';
                                 }
-
+        
                                 return `
                                     <div class="p-3 rounded border-2 ${bgClass || 'border-gray-200 dark:border-gray-600'}">
                                         ${option}
@@ -11477,7 +11477,7 @@
                                 `;
                             }).join('')}
                         </div>
-
+        
                         ${question.explanation ? `
                             <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded mt-4">
                                 <h4 class="font-semibold mb-2">Explication :</h4>
