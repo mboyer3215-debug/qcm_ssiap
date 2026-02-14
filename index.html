@@ -11366,65 +11366,65 @@
             return [];
         }
         
-function submitQCM() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-    }
-
-    let correctCount = 0;
-
-    console.log('========== DEBUG DÉTAILLÉ ==========');
-
-    currentQCM.forEach((question, index) => {
-
-        const rawUser = userAnswers[index];
-        const rawCorrect = getCorrectAnswers(question);
-
-        const userAnswer = normalizeAnswers(rawUser);
-        const correctAnswer = normalizeAnswers(rawCorrect);
-
-        const userJSON = JSON.stringify(userAnswer);
-        const correctJSON = JSON.stringify(correctAnswer);
-
-        const isCorrect = userJSON === correctJSON;
-
-        // 🔍 DEBUG pour réponses uniques
-        if (rawCorrect && rawCorrect.length === 1) {
-            console.log(`--- Q${index + 1} (RÉPONSE UNIQUE) ---`);
-            console.log('Question:', question.question.substring(0, 50) + '...');
-            console.log('Réponse user BRUTE:', rawUser);
-            console.log('Réponse correcte BRUTE:', rawCorrect);
-            console.log('Réponse user NORMALISÉE:', userAnswer);
-            console.log('Réponse correcte NORMALISÉE:', correctAnswer);
-            console.log('JSON user:', userJSON);
-            console.log('JSON correct:', correctJSON);
-            console.log('ÉGALITÉ ?:', isCorrect);
-            console.log('---');
-        }
-
-        if (isCorrect) {
-            correctCount++;
-        }
-    });
-
-    console.log('Total correct:', correctCount);
-    console.log('=====================================');
-
-    const score = Math.round((correctCount / currentQCM.length) * 100);
-
-    const result = {
-        traineeId: currentUser.id,
-        traineeName: `${currentUser.firstName} ${currentUser.lastName}`,
-        level: currentUser.level,
-        totalQuestions: currentQCM.length,
-        correctAnswers: correctCount,
-        score,
-        completedAt: Date.now(),
-        answers: userAnswers
-    };
-
-    console.log(result);
-}
+      function submitQCM() {
+          if (timerInterval) {
+              clearInterval(timerInterval);
+          }
+      
+          let correctCount = 0;
+      
+          console.log('========== DEBUG DÉTAILLÉ ==========');
+      
+          currentQCM.forEach((question, index) => {
+      
+              const rawUser = userAnswers[index];
+              const rawCorrect = getCorrectAnswers(question);
+      
+              const userAnswer = normalizeAnswers(rawUser);
+              const correctAnswer = normalizeAnswers(rawCorrect);
+      
+              const userJSON = JSON.stringify(userAnswer);
+              const correctJSON = JSON.stringify(correctAnswer);
+      
+              const isCorrect = userJSON === correctJSON;
+      
+              // 🔍 DEBUG pour réponses uniques
+              if (rawCorrect && rawCorrect.length === 1) {
+                  console.log(`--- Q${index + 1} (RÉPONSE UNIQUE) ---`);
+                  console.log('Question:', question.question.substring(0, 50) + '...');
+                  console.log('Réponse user BRUTE:', rawUser);
+                  console.log('Réponse correcte BRUTE:', rawCorrect);
+                  console.log('Réponse user NORMALISÉE:', userAnswer);
+                  console.log('Réponse correcte NORMALISÉE:', correctAnswer);
+                  console.log('JSON user:', userJSON);
+                  console.log('JSON correct:', correctJSON);
+                  console.log('ÉGALITÉ ?:', isCorrect);
+                  console.log('---');
+              }
+      
+              if (isCorrect) {
+                  correctCount++;
+              }
+          });
+      
+          console.log('Total correct:', correctCount);
+          console.log('=====================================');
+      
+          const score = Math.round((correctCount / currentQCM.length) * 100);
+      
+          const result = {
+              traineeId: currentUser.id,
+              traineeName: `${currentUser.firstName} ${currentUser.lastName}`,
+              level: currentUser.level,
+              totalQuestions: currentQCM.length,
+              correctAnswers: correctCount,
+              score,
+              completedAt: Date.now(),
+              answers: userAnswers
+          };
+      
+          console.log(result);
+      }
         
         function showResults(result) {
             document.getElementById('qcmScreen').classList.add('hidden');
