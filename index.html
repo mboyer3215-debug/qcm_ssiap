@@ -11424,6 +11424,20 @@
           };
       
           console.log(result);
+
+          // ✅ SAUVEGARDE FIREBASE
+         if (sessionId && currentUser?.id) {
+             database
+                 .ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results')
+                 .push(result)
+                 .then(() => {
+                     console.log("✅ Résultat sauvegardé dans Firebase");
+                 })
+                 .catch(error => {
+                     console.error("❌ Erreur Firebase :", error);
+                 });
+         }
+
           // ✅ ENVOI VERS L'ÉCRAN RÉSULTATS
           showResults(result);
       }
