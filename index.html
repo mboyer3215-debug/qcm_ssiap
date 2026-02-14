@@ -1,4 +1,4 @@
-
+ 
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -11614,7 +11614,7 @@
         
                 // ✅ UTILISER normalizeAnswers
                 const userAnswer = normalizeAnswers(userAnswers[index]);
-                const correctAnswer = normalizeAnswers(question.correctAnswers ?? question.correct);
+                const correctAnswer = normalizeAnswers(question);
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
         
                 if (isCorrect) themes[theme].correct++;
