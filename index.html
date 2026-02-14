@@ -11343,11 +11343,9 @@
 
         // ✅ Fonction utilitaire pour normaliser les réponses en tableau
         function normalizeAnswers(answer) {
-            // Si undefined ou null, retourner tableau vide
             if (answer === undefined || answer === null) {
                 return [];
             }
-            // Si c'est déjà un tableau, le copier et trier
             if (Array.isArray(answer)) {
                 return [...answer].map(Number).sort((a, b) => a - b);
             }
@@ -11355,74 +11353,85 @@
             return [Number(answer)];
         }
         
-function submitQCM() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-    }
-
-    let correctCount = 0;
-
-    console.log('========== DEBUG DÉTAILLÉ ==========');
-
-    currentQCM.forEach((question, index) => {
-        const rawUser = userAnswers[index];
-        const rawCorrect = question.correctAnswers;
-        
-        const userAnswer = normalizeAnswers(rawUser);
-        const correctAnswer = normalizeAnswers(rawCorrect);
-        
-        const userJSON = JSON.stringify(userAnswer);
-        const correctJSON = JSON.stringify(correctAnswer);
-        const isCorrect = userJSON === correctJSON;
-
-        // 🔍 DEBUG pour les questions à réponse unique
-        if (rawCorrect && rawCorrect.length === 1) {
-            console.log(`--- Q${index + 1} (RÉPONSE UNIQUE) ---`);
-            console.log('Question:', question.question.substring(0, 50) + '...');
-            console.log('Réponse user BRUTE:', rawUser);
-            console.log('Réponse correcte BRUTE:', rawCorrect);
-            console.log('Réponse user NORMALISÉE:', userAnswer);
-            console.log('Réponse correcte NORMALISÉE:', correctAnswer);
-            console.log('JSON user:', userJSON);
-            console.log('JSON correct:', correctJSON);
-            console.log('ÉGALITÉ ?:', isCorrect);
-            console.log('---');
+        // ✅ NOUVELLE FONCTION pour récupérer les bonnes réponses d'une question
+        function getCorrectAnswers(question) {
+            // Gérer les deux formats : "correctAnswers" (tableau) et "correct" (nombre)
+            if (question.correctAnswers !== undefined) {
+                return normalizeAnswers(question.correctAnswers);
+            }
+            if (question.correct !== undefined) {
+                return normalizeAnswers(question.correct);
+            }
+            console.warn('Question sans réponse correcte:', question);
+            return [];
         }
-
-        if (isCorrect) {
-            correctCount++;
+        
+        function submitQCM() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        
+            let correctCount = 0;
+        
+            console.log('========== DEBUG DÉTAILLÉ ==========');
+        
+            currentQCM.forEach((question, index) => {
+                const userAnswer = normalizeAnswers(userAnswers[index]);
+                const correctAnswer = getCorrectAnswers(question);  // ✅ CHANGÉ
+            
+                if (JSON.stringify(userAnswer) === JSON.stringify(correctAnswer)) {
+                    correctCount++;
+                }
+            });
+        
+                // 🔍 DEBUG pour les questions à réponse unique
+                if (rawCorrect && rawCorrect.length === 1) {
+                    console.log(`--- Q${index + 1} (RÉPONSE UNIQUE) ---`);
+                    console.log('Question:', question.question.substring(0, 50) + '...');
+                    console.log('Réponse user BRUTE:', rawUser);
+                    console.log('Réponse correcte BRUTE:', rawCorrect);
+                    console.log('Réponse user NORMALISÉE:', userAnswer);
+                    console.log('Réponse correcte NORMALISÉE:', correctAnswer);
+                    console.log('JSON user:', userJSON);
+                    console.log('JSON correct:', correctJSON);
+                    console.log('ÉGALITÉ ?:', isCorrect);
+                    console.log('---');
+                }
+        
+                if (isCorrect) {
+                    correctCount++;
+                }
+            });
+        
+            console.log('Total correct:', correctCount);
+            console.log('=====================================');
+        
+            const score = Math.round((correctCount / currentQCM.length) * 100);
+        
+            const result = {
+                traineeId: currentUser.id,
+                traineeName: `${currentUser.firstName} ${currentUser.lastName}`,
+                level: currentUser.level,
+                totalQuestions: currentQCM.length,
+                correctAnswers: correctCount,
+                score,
+                completedAt: Date.now(),
+                answers: userAnswers
+            };
+        
+            if (sessionId && currentUser.id) {
+                const resultId = 'result_' + Date.now();
+                database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results/' + resultId).set(result).then(() => {
+                    console.log('✅ Résultat sauvegardé');
+                    database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastScore').set(score);
+                    database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastCompletedAt').set(Date.now());
+                }).catch((error) => {
+                    console.error('❌ Erreur:', error);
+                });
+            }
+        
+            showResults(result);
         }
-    });
-
-    console.log('Total correct:', correctCount);
-    console.log('=====================================');
-
-    const score = Math.round((correctCount / currentQCM.length) * 100);
-
-    const result = {
-        traineeId: currentUser.id,
-        traineeName: `${currentUser.firstName} ${currentUser.lastName}`,
-        level: currentUser.level,
-        totalQuestions: currentQCM.length,
-        correctAnswers: correctCount,
-        score,
-        completedAt: Date.now(),
-        answers: userAnswers
-    };
-
-    if (sessionId && currentUser.id) {
-        const resultId = 'result_' + Date.now();
-        database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/results/' + resultId).set(result).then(() => {
-            console.log('✅ Résultat sauvegardé');
-            database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastScore').set(score);
-            database.ref('sessions/' + sessionId + '/trainees/' + currentUser.id + '/lastCompletedAt').set(Date.now());
-        }).catch((error) => {
-            console.error('❌ Erreur:', error);
-        });
-    }
-
-    showResults(result);
-}
         
         function showResults(result) {
             document.getElementById('qcmScreen').classList.add('hidden');
@@ -11478,7 +11487,7 @@ function submitQCM() {
                 
                 // ✅ UTILISER normalizeAnswers
                 const userAnswer = normalizeAnswers(userAnswers[index]);
-                const correctAnswer = normalizeAnswers(question.correctAnswers ?? question.correct);
+                const correctAnswer = getCorrectAnswers(question);  // ✅ CHANGÉ
                 const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correctAnswer);
                 
                     // 🔍 DEBUG - Ajouter ceci
